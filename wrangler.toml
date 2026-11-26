@@ -1,0 +1,39 @@
+### ---------------------------------------------------------------------
+### nasiol-mailchimp-campaign-publisher — Workers Builds config
+###
+### Builds Claude-made marketing emails in Mailchimp, emails Jeremy a review
+### link, and sends only after he approves. Separate on purpose from
+### nasiol-warranty-payment (the Ops Console).
+###
+### Secrets (set in the dashboard, never in this file):
+###   MAILCHIMP_API_KEY, MANDRILL_API_KEY
+### Bindings are NOT remembered across a deploy: if a binding below is
+### missing or wrong, the deploy strips it.
+### ---------------------------------------------------------------------
+
+name = "nasiol-mailchimp-campaign-publisher"
+main = "worker.js"
+compatibility_date = "2026-07-03"
+workers_dev = true
+
+# Every 5 minutes: build queued campaigns, send approved ones that are due,
+# remind about anything waiting more than 24 h.
+[triggers]
+crons = ["*/5 * * * *"]
+
+# This Worker's own database: campaign queue, HTML, events, settings.
+[[d1_databases]]
+binding = "DB"
+database_name = "nasiol_mailchimp_campaign_publisher"
+database_id = "2606741b-af4d-45d8-8395-9f5604c05c99"
+
+# Ops Console database. Used ONLY to INSERT into ai_team_activity so sends,
+# rejections and failures show on the AI Team tab. Never reads or changes
+# anything else there.
+[[d1_databases]]
+binding = "OPS_DB"
+database_name = "proclub_registrations"
+database_id = "71ba0581-ba0c-402b-b5e2-f457da76001d"
+
+[observability]
+enabled = true

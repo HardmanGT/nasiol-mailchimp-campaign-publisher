@@ -1,0 +1,14 @@
+{
+  "name": "nasiol-mailchimp-campaign-publisher",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Builds Claude-made marketing emails in Mailchimp and sends them after Jeremy approves. Separate from nasiol-warranty-payment.",
+  "main": "worker.js",
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "devDependencies": {
+    "wrangler": "^4.165.0"
+  }
+}
