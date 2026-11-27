@@ -209,13 +209,17 @@ function bufToB64(buf) {
   return btoa(bin);
 }
 
-async function hostImages(env, html, campaignKey) {
-  // Named brand assets first: turn them into data: URIs, then the normal path uploads them.
-  html = html.replace(/src=(["'])asset:([\w.-]+)\1/g, (all, q, name) => {
+function expandAssets(html) {
+  return html.replace(/src=(["'])asset:([\w.-]+)\1/g, (all, q, name) => {
     const a = BRAND_ASSETS[name];
     if (!a) throw new Error(`Unknown brand asset "${name}". Available: ${Object.keys(BRAND_ASSETS).join(", ")}`);
     return `src=${q}data:${a.mime};base64,${bufToB64(a.bytes)}${q}`;
   });
+}
+
+async function hostImages(env, html, campaignKey) {
+  // Named brand assets become data: URIs, then the normal path uploads them.
+  html = expandAssets(html);
   const re = /src=(["'])data:(image\/(?:png|jpe?g|gif));base64,([A-Za-z0-9+/=\s]+)\1/g;
   const found = [...html.matchAll(re)];
   if (!found.length) return html;
@@ -447,7 +451,7 @@ async function reviewPage(env, key, token) {
     return page(c.subject, `<div class="card"><h1>${esc(c.subject)}</h1>${state}${summary}</div>`);
   }
 
-  const html = await loadHtml(env, c).catch(() => "<p>Preview unavailable.</p>");
+  const html = await loadHtml(env, c).then(expandAssets).catch(() => "<p>Preview unavailable.</p>");
   const issues = checklistItems(c);
   const issuesHtml = issues.length
     ? `<div class="card"><b class="warn">Mailchimp flagged:</b><ul>${issues.map((i) =>
