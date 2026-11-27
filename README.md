@@ -17,7 +17,7 @@ approval from Jeremy and no copy-paste. Separate from `nasiol-warranty-payment`
    and the HTML in `campaign_html_parts` through the Cloudflare connector, then
    sets `status = 'ready_to_build'`. Exact SQL:
    `nasiol-ai-team/knowledge/systems/mailchimp-campaign-publisher.md`.
-2. **The Worker builds it** (every 5 minutes): Mailchimp campaign with audience,
+2. **The Worker builds it** (every minute): Mailchimp campaign with audience,
    optional tag, subject, preview text, from name, reply-to and the HTML. It
    runs Mailchimp's send checklist.
 3. **Jeremy gets one email** (via Mandrill, from support@nasiolusaproclub.com)
@@ -40,7 +40,7 @@ No reply after 24 hours: one reminder email with a fresh link.
 **Request changes acts immediately.** The tap starts the scheduled task
 "Marketing: instant response to email approval decisions" (`trig_01N6cFRDjUfynxXo6X1jfwTa`)
 through the Claude Code routine fire API, with Jeremy's note attached. That
-session revises the email and resubmits it; the next 5-minute tick sends Jeremy
+session revises the email and resubmits it; the next one-minute tick sends Jeremy
 the new approval link. Build and send failures start it the same way. If a
 change request is still waiting 30 minutes later, the cron starts it again.
 Needs secret `CLAUDE_MARKETING_ROUTINE_TOKEN` (generated on that task's API

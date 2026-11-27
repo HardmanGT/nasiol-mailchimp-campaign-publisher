@@ -6,7 +6,7 @@
 //   1. The marketing agent (Claude) writes a campaign row + its HTML into D1
 //      `nasiol_mailchimp_campaign_publisher` through the Cloudflare connector,
 //      then sets status = 'ready_to_build'.
-//   2. Every 5 minutes this Worker picks it up, builds the campaign in
+//   2. Every minute this Worker picks it up, builds the campaign in
 //      Mailchimp (audience, tag, subject, preview text, HTML), runs Mailchimp's
 //      send checklist, and emails Jeremy a review link through Mandrill.
 //   3. Jeremy opens the link, sees the email exactly as built, and taps

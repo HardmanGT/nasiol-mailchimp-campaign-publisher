@@ -16,10 +16,10 @@ main = "worker.js"
 compatibility_date = "2026-07-03"
 workers_dev = true
 
-# Every 5 minutes: build queued campaigns, send approved ones that are due,
+# Every minute: build queued campaigns, send approved ones that are due,
 # remind about anything waiting more than 24 h.
 [triggers]
-crons = ["*/5 * * * *"]
+crons = ["* * * * *"]
 
 # This Worker's own database: campaign queue, HTML, events, settings.
 [[d1_databases]]
