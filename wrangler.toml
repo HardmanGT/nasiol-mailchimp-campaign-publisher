@@ -35,11 +35,11 @@ binding = "OPS_DB"
 database_name = "proclub_registrations"
 database_id = "71ba0581-ba0c-402b-b5e2-f457da76001d"
 
-# Scheduled task "Marketing: act on email approval decisions". Started the
+# Scheduled task "Marketing: instant response to email approval decisions". Started the
 # moment Jeremy taps Request changes, or when a build/send fails. Its token is
 # the secret CLAUDE_MARKETING_ROUTINE_TOKEN.
 [vars]
-CLAUDE_MARKETING_ROUTINE_ID = "trig_01SCjz9rk7cowrNnvYCYQ1DJ"
+CLAUDE_MARKETING_ROUTINE_ID = "trig_01N6cFRDjUfynxXo6X1jfwTa"
 
 [observability]
 enabled = true

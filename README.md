@@ -38,7 +38,7 @@ approval from Jeremy and no copy-paste. Separate from `nasiol-warranty-payment`
 No reply after 24 hours: one reminder email with a fresh link.
 
 **Request changes acts immediately.** The tap starts the scheduled task
-"Marketing: act on email approval decisions" (`trig_01SCjz9rk7cowrNnvYCYQ1DJ`)
+"Marketing: instant response to email approval decisions" (`trig_01N6cFRDjUfynxXo6X1jfwTa`)
 through the Claude Code routine fire API, with Jeremy's note attached. That
 session revises the email and resubmits it; the next 5-minute tick sends Jeremy
 the new approval link. Build and send failures start it the same way. If a

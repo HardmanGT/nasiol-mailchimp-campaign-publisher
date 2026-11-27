@@ -709,7 +709,9 @@ export default {
         "SELECT status, COUNT(*) AS n FROM campaigns GROUP BY status").all();
       return Response.json({
         worker: WORKER,
-        secrets: { MAILCHIMP_API_KEY: !!env.MAILCHIMP_API_KEY, MANDRILL_API_KEY: !!env.MANDRILL_API_KEY },
+        secrets: { MAILCHIMP_API_KEY: !!env.MAILCHIMP_API_KEY, MANDRILL_API_KEY: !!env.MANDRILL_API_KEY,
+          CLAUDE_MARKETING_ROUTINE_TOKEN: !!env.CLAUDE_MARKETING_ROUTINE_TOKEN },
+        marketing_agent_task: env.CLAUDE_MARKETING_ROUTINE_ID || null,
         ops_console_link: !!env.OPS_DB,
         public_base_url: origin,
         campaigns_by_status: results,
