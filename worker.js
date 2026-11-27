@@ -32,6 +32,7 @@ const REVIEW_FROM_NAME = "Nasiol Marketing Approvals";
 const ET = "America/New_York";
 const REMIND_AFTER_HOURS = 24;
 const AUDIENCE_REFRESH_HOURS = 12;
+const ROUTINE_CHECKLIST_IDS = [102, 108];
 
 // ---------------------------------------------------------------- helpers
 
@@ -305,7 +306,9 @@ async function reviewUrl(env, c, token) {
 function checklistItems(c) {
   try {
     const cl = JSON.parse(c.checklist_json || "{}");
-    return (cl.items || []).filter((i) => i.type !== "success");
+    // Hide Mailchimp's routine notices so only real problems show:
+    // 102 = default CAN-SPAM footer added (expected), 108 = no referral link.
+    return (cl.items || []).filter((i) => i.type !== "success" && !ROUTINE_CHECKLIST_IDS.includes(i.id));
   } catch { return []; }
 }
 
