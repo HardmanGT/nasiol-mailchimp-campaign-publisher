@@ -37,3 +37,9 @@ database_id = "71ba0581-ba0c-402b-b5e2-f457da76001d"
 
 [observability]
 enabled = true
+
+# Brand images in assets/ are bundled into the Worker (see BRAND_ASSETS in worker.js).
+[[rules]]
+type = "Data"
+globs = ["**/*.png", "**/*.jpg"]
+fallthrough = false

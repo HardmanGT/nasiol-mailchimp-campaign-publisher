@@ -6,7 +6,7 @@
   "main": "worker.js",
   "type": "module",
   "scripts": {
-    "test": "node --test test/*.test.js"
+    "test": "node --import ./test/register-assets.mjs --test test/*.test.js"
   },
   "devDependencies": {
     "wrangler": "^4.165.0"

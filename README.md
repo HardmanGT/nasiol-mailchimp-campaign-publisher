@@ -37,6 +37,13 @@ approval from Jeremy and no copy-paste. Separate from `nasiol-warranty-payment`
 
 No reply after 24 hours: one reminder email with a fresh link.
 
+## Images
+- **Brand assets** live in `assets/` and are bundled into the Worker. In email
+  HTML write `<img src="asset:nasiol-lockup-black-red.png">`. The Worker uploads
+  the file to Mailchimp's File Manager once and swaps in the hosted URL.
+  To add one: put the file in `assets/`, import it in `worker.js`, add it to `BRAND_ASSETS`.
+- **One-off images** can be embedded as `data:image/png;base64,…`; same upload path.
+
 ## The auto-send switch (off)
 `settings.allow_auto_send` is `no`. While it is `no`, nothing sends without
 Jeremy's tap. If Jeremy sets it to `yes`, a campaign that carries

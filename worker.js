@@ -26,7 +26,16 @@
 // Bindings (wrangler.toml): DB (this Worker's D1), OPS_DB (proclub_registrations,
 // INSERT into ai_team_activity only, so results show on the Ops Console AI Team tab).
 
+import nasiolLockupBlackRed from "./assets/nasiol-lockup-black-red.png";
+
 const WORKER = "nasiol-mailchimp-campaign-publisher";
+
+// Brand images bundled with the Worker. Emails reference them as
+// src="asset:<name>" and the Worker uploads them to Mailchimp once.
+// To add one: drop a PNG/JPG in assets/, import it here, add it to the map.
+const BRAND_ASSETS = {
+  "nasiol-lockup-black-red.png": { mime: "image/png", bytes: nasiolLockupBlackRed },
+};
 const REVIEW_FROM_EMAIL = "support@nasiolusaproclub.com";
 const REVIEW_FROM_NAME = "Nasiol Marketing Approvals";
 const ET = "America/New_York";
@@ -194,7 +203,19 @@ async function mailchimpContentHash(env, mcId) {
 // Images: the agent embeds them as data: URIs. Before the HTML goes to
 // Mailchimp, each one is uploaded to Mailchimp's File Manager (Content Studio)
 // once, and the src is swapped for the hosted URL. Same image = same URL.
+function bufToB64(buf) {
+  const u8 = new Uint8Array(buf); let bin = "";
+  for (let i = 0; i < u8.length; i += 32768) bin += String.fromCharCode.apply(null, u8.subarray(i, i + 32768));
+  return btoa(bin);
+}
+
 async function hostImages(env, html, campaignKey) {
+  // Named brand assets first: turn them into data: URIs, then the normal path uploads them.
+  html = html.replace(/src=(["'])asset:([\w.-]+)\1/g, (all, q, name) => {
+    const a = BRAND_ASSETS[name];
+    if (!a) throw new Error(`Unknown brand asset "${name}". Available: ${Object.keys(BRAND_ASSETS).join(", ")}`);
+    return `src=${q}data:${a.mime};base64,${bufToB64(a.bytes)}${q}`;
+  });
   const re = /src=(["'])data:(image\/(?:png|jpe?g|gif));base64,([A-Za-z0-9+/=\s]+)\1/g;
   const found = [...html.matchAll(re)];
   if (!found.length) return html;

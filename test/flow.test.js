@@ -229,3 +229,20 @@ test("embedded images are uploaded to Mailchimp once and swapped for hosted URLs
   assert.equal((sent.match(/mcusercontent\.com/g) || []).length, 2);
   assert.equal(mcState.uploads, 1, "same image uploaded once");
 });
+
+test("asset: references use the bundled brand logo; unknown asset fails before Mailchimp", async () => {
+  const html = `<!doctype html><html><body><img src="asset:nasiol-lockup-black-red.png"></body></html>`;
+  sqlite.prepare(`INSERT INTO campaigns (campaign_key, title, subject, audience_name, html_part_count) VALUES ('a1','t','s','Nasiol Pro Club',1)`).run();
+  sqlite.prepare("INSERT INTO campaign_html_parts VALUES ('a1',1,?)").run(html);
+  sqlite.prepare("UPDATE campaigns SET status='ready_to_build' WHERE campaign_key='a1'").run();
+  await tick(env);
+  assert.equal(row("a1").status, "awaiting_approval", row("a1").error);
+  assert.match(mcState.campaigns.mc1.html, /src="https:\/\/mcusercontent\.com\/x\/images\/publisher-\w+\.png"/);
+
+  sqlite.prepare(`INSERT INTO campaigns (campaign_key, title, subject, audience_name, html_part_count) VALUES ('a2','t','s','Nasiol Pro Club',1)`).run();
+  sqlite.prepare("INSERT INTO campaign_html_parts VALUES ('a2',1,?)").run(html.replace("nasiol-lockup", "nope"));
+  sqlite.prepare("UPDATE campaigns SET status='ready_to_build' WHERE campaign_key='a2'").run();
+  await tick(env);
+  assert.equal(row("a2").status, "failed");
+  assert.match(row("a2").error, /Unknown brand asset/);
+});
