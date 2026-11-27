@@ -80,3 +80,10 @@ CREATE TABLE IF NOT EXISTS mailchimp_tags (
   member_count INTEGER,
   PRIMARY KEY (list_id, segment_id)
 );
+
+-- Images the Worker uploaded to Mailchimp's File Manager, so each is uploaded once.
+CREATE TABLE IF NOT EXISTS hosted_images (
+  sha256      TEXT PRIMARY KEY,
+  url         TEXT NOT NULL,
+  uploaded_at TEXT NOT NULL
+);

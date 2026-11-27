@@ -41,6 +41,10 @@ globalThis.fetch = async (url, init = {}) => {
     { id: "dist1", name: "Artekya Distributors", stats: { member_count: 34 } }] });
   if (/^\/lists\/\w+\/segments$/.test(p)) return json({ segments: p.includes("proclub1")
     ? [{ id: 777, name: "Turbo Tint", member_count: 40 }] : [] });
+  if (p === "/file-manager/files" && method === "POST") {
+    mcState.uploads = (mcState.uploads || 0) + 1;
+    return json({ full_size_url: `https://mcusercontent.com/x/images/${body.name}` });
+  }
   if (p === "/campaigns" && method === "POST") {
     const id = "mc" + mcState.nextId++;
     mcState.campaigns[id] = { status: "save", html: "", recipients: body.recipients, settings: body.settings };
@@ -210,4 +214,18 @@ test("missing HTML part is caught before anything reaches Mailchimp", async () =
   assert.equal(row(key).status, "failed");
   assert.match(row(key).error, /part 2 of 2 is missing/);
   assert.ok(!calls.some((x) => x.startsWith("POST /campaigns")));
+});
+
+test("embedded images are uploaded to Mailchimp once and swapped for hosted URLs", async () => {
+  const img = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+  const html = `<!doctype html><html><body><img src="data:image/png;base64,${img}"><img src='data:image/png;base64,${img}'></body></html>`;
+  sqlite.prepare(`INSERT INTO campaigns (campaign_key, title, subject, audience_name, html_part_count) VALUES ('img','t','s','Nasiol Pro Club',1)`).run();
+  sqlite.prepare("INSERT INTO campaign_html_parts VALUES ('img',1,?)").run(html);
+  sqlite.prepare("UPDATE campaigns SET status='ready_to_build' WHERE campaign_key='img'").run();
+  await tick(env);
+  assert.equal(row("img").status, "awaiting_approval", row("img").error);
+  const sent = mcState.campaigns.mc1.html;
+  assert.ok(!sent.includes("data:image"), "no data URIs reach Mailchimp");
+  assert.equal((sent.match(/mcusercontent\.com/g) || []).length, 2);
+  assert.equal(mcState.uploads, 1, "same image uploaded once");
 });

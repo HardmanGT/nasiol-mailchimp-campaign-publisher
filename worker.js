@@ -191,6 +191,34 @@ async function mailchimpContentHash(env, mcId) {
   return sha256Hex(content.html || "");
 }
 
+// Images: the agent embeds them as data: URIs. Before the HTML goes to
+// Mailchimp, each one is uploaded to Mailchimp's File Manager (Content Studio)
+// once, and the src is swapped for the hosted URL. Same image = same URL.
+async function hostImages(env, html, campaignKey) {
+  const re = /src=(["'])data:(image\/(?:png|jpe?g|gif));base64,([A-Za-z0-9+/=\s]+)\1/g;
+  const found = [...html.matchAll(re)];
+  if (!found.length) return html;
+  const urls = new Map();
+  for (const m of found) {
+    const b64 = m[3].replace(/\s+/g, "");
+    if (urls.has(b64)) continue;
+    const hash = await sha256Hex(b64);
+    let row = await env.DB.prepare("SELECT url FROM hosted_images WHERE sha256 = ?").bind(hash).first();
+    if (!row) {
+      const ext = m[2].split("/")[1].replace("jpeg", "jpg");
+      const up = await mc(env, "POST", "/file-manager/files", {
+        name: `publisher-${hash.slice(0, 12)}.${ext}`, file_data: b64,
+      });
+      row = { url: up.full_size_url };
+      await env.DB.prepare("INSERT OR REPLACE INTO hosted_images (sha256, url, uploaded_at) VALUES (?,?,?)")
+        .bind(hash, row.url, nowIso()).run();
+      await logEvent(env, campaignKey, "image_hosted", row.url);
+    }
+    urls.set(b64, row.url);
+  }
+  return html.replace(re, (all, q, mime, data) => `src=${q}${urls.get(data.replace(/\s+/g, ""))}${q}`);
+}
+
 // ---------------------------------------------------------------- Mandrill
 
 async function sendMandrill(env, { to, subject, html, text }) {
@@ -262,7 +290,7 @@ async function build(env, c) {
       mcId = created.id;
       await update(env, c.id, { mailchimp_campaign_id: mcId, mailchimp_web_id: String(created.web_id || "") });
     }
-    await mc(env, "PUT", `/campaigns/${mcId}/content`, { html });
+    await mc(env, "PUT", `/campaigns/${mcId}/content`, { html: await hostImages(env, html, c.campaign_key) });
 
     const info = await mc(env, "GET", `/campaigns/${mcId}?fields=recipients.recipient_count,web_id`);
     const checklist = await mc(env, "GET", `/campaigns/${mcId}/send-checklist`);
