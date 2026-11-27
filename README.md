@@ -37,6 +37,15 @@ approval from Jeremy and no copy-paste. Separate from `nasiol-warranty-payment`
 
 No reply after 24 hours: one reminder email with a fresh link.
 
+**Request changes acts immediately.** The tap starts the scheduled task
+"Marketing: act on email approval decisions" (`trig_01SCjz9rk7cowrNnvYCYQ1DJ`)
+through the Claude Code routine fire API, with Jeremy's note attached. That
+session revises the email and resubmits it; the next 5-minute tick sends Jeremy
+the new approval link. Build and send failures start it the same way. If a
+change request is still waiting 30 minutes later, the cron starts it again.
+Needs secret `CLAUDE_MARKETING_ROUTINE_TOKEN` (generated on that task's API
+trigger at claude.ai/code/routines; generating a new one revokes the old).
+
 ## Images
 - **Brand assets** live in `assets/` and are bundled into the Worker. In email
   HTML write `<img src="asset:nasiol-lockup-black-red.png">`. The Worker uploads
@@ -66,7 +75,7 @@ Side exits: `changes_requested`, `rejected`, `cancelled`, `failed`.
 1. Cloudflare → Workers & Pages → Create → Import a repository → this repo.
    Builds deploy from `main`.
 2. Worker → Settings → Variables and Secrets → add secrets
-   `MAILCHIMP_API_KEY` and `MANDRILL_API_KEY`.
+   `MAILCHIMP_API_KEY`, `MANDRILL_API_KEY` and `CLAUDE_MARKETING_ROUTINE_TOKEN`.
 3. Open the Worker's workers.dev URL once. It shows a status page and records
    its own address so review emails can link back to it.
 

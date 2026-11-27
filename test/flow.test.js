@@ -24,9 +24,9 @@ function d1(sqlite) {
 }
 
 // --- mocked Mailchimp + Mandrill -----------------------------------------
-let mcState, calls, mandrill;
+let mcState, calls, mandrill, fires;
 function resetMocks() {
-  calls = []; mandrill = [];
+  calls = []; mandrill = []; fires = [];
   mcState = { campaigns: {}, nextId: 1 };
 }
 globalThis.fetch = async (url, init = {}) => {
@@ -34,6 +34,10 @@ globalThis.fetch = async (url, init = {}) => {
   const body = init.body ? JSON.parse(init.body) : null;
   calls.push(`${method} ${url.replace(/https:\/\/us14\.api\.mailchimp\.com\/3\.0/, "")}`);
   const json = (d, s = 200) => new Response(JSON.stringify(d), { status: s, headers: { "Content-Type": "application/json" } });
+  if (url.startsWith("https://api.anthropic.com/v1/claude_code/routines/")) {
+    fires.push({ url, auth: init.headers.Authorization, text: body.text });
+    return json({ type: "routine_fire", claude_code_session_url: "https://claude.ai/code/session_x" });
+  }
   if (url.startsWith("https://mandrillapp.com")) { mandrill.push(body.message); return json([{ status: "sent" }]); }
   const p = new URL(url).pathname.replace("/3.0", "");
   if (p === "/lists") return json({ lists: [
@@ -245,4 +249,32 @@ test("asset: references use the bundled brand logo; unknown asset fails before M
   await tick(env);
   assert.equal(row("a2").status, "failed");
   assert.match(row("a2").error, /Unknown brand asset/);
+});
+
+test("Request changes starts the marketing agent immediately with Jeremy's note; retry if it didn't start", async () => {
+  env.CLAUDE_MARKETING_ROUTINE_TOKEN = "sk-ant-oat01-test"; env.CLAUDE_MARKETING_ROUTINE_ID = "trig_test";
+  await get("https://pub.example.workers.dev/");
+  const key = queue(); await tick(env);
+  const link = reviewLink(); const t = new URL(link).searchParams.get("t");
+  await post(link, { t, action: "changes", note: "Make it say Friday" });
+  assert.equal(fires.length, 1);
+  assert.match(fires[0].url, /routines\/trig_test\/fire$/);
+  assert.equal(fires[0].auth, "Bearer sk-ant-oat01-test");
+  assert.match(fires[0].text, /Make it say Friday/);
+  assert.match(fires[0].text, new RegExp(key));
+  await tick(env);
+  assert.equal(fires.length, 1, "no duplicate start within 30 min");
+  sqlite.prepare("UPDATE campaign_events SET at = ? WHERE event = 'agent_started'").run(new Date(Date.now() - 31 * 60e3).toISOString());
+  await tick(env);
+  assert.equal(fires.length, 2, "retried after 30 min still waiting");
+});
+
+test("without the routine token nothing breaks; it is logged", async () => {
+  await get("https://pub.example.workers.dev/");
+  const key = queue(); await tick(env);
+  const link = reviewLink(); const t = new URL(link).searchParams.get("t");
+  await post(link, { t, action: "changes", note: "x" });
+  assert.equal(row(key).status, "changes_requested");
+  assert.equal(fires.length, 0);
+  assert.ok(sqlite.prepare("SELECT 1 FROM campaign_events WHERE event='agent_not_configured'").get());
 });

@@ -287,6 +287,45 @@ async function opsNote(env, c, section, title, detail, link) {
   }
 }
 
+// ---------------------------------------------------------------- marketing agent
+
+// Starts the marketing agent's scheduled task right away (Claude Code routine
+// "fire" API) so a change request or failure is handled in minutes instead of
+// waiting for a schedule. Needs secret CLAUDE_MARKETING_ROUTINE_TOKEN and var
+// CLAUDE_MARKETING_ROUTINE_ID. Never throws; the cron retry below covers misses.
+async function startMarketingAgent(env, c, reason, detail) {
+  if (!env.CLAUDE_MARKETING_ROUTINE_TOKEN || !env.CLAUDE_MARKETING_ROUTINE_ID) {
+    await logEvent(env, c.campaign_key, "agent_not_configured", reason);
+    return false;
+  }
+  const text = [
+    `Event from nasiol-mailchimp-campaign-publisher: ${reason}`,
+    `campaign_key: ${c.campaign_key}`,
+    `subject: ${c.subject}`,
+    detail ? `Jeremy's note / error: ${detail}` : "",
+  ].filter(Boolean).join("\n");
+  try {
+    const res = await fetch(
+      `https://api.anthropic.com/v1/claude_code/routines/${env.CLAUDE_MARKETING_ROUTINE_ID}/fire`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${env.CLAUDE_MARKETING_ROUTINE_TOKEN}`,
+          "anthropic-version": "2026-10-21",
+          "anthropic-beta": "experimental-cc-routine-2026-04-01",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ text }),
+      });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(`HTTP ${res.status} ${JSON.stringify(data).slice(0, 300)}`);
+    await logEvent(env, c.campaign_key, "agent_started", data && data.claude_code_session_url);
+    return true;
+  } catch (e) {
+    await logEvent(env, c.campaign_key, "agent_start_failed", e.message);
+    return false;
+  }
+}
+
 // ---------------------------------------------------------------- build
 
 async function build(env, c) {
@@ -344,6 +383,7 @@ async function build(env, c) {
   } catch (e) {
     await update(env, c.id, { status: "failed", error: e.message.slice(0, 1500) });
     await logEvent(env, c.campaign_key, "build_failed", e.message);
+    await startMarketingAgent(env, c, "build failed", e.message);
     await opsNote(env, c, "needs_you", `Email could not be built: ${c.subject}`,
       `The Mailchimp publisher stopped before review. Reason: ${e.message}`);
   }
@@ -505,6 +545,7 @@ async function reviewPost(env, key, request) {
     if (!(await claim(env, c.id, "awaiting_approval", to))) return page("Already decided", `<div class="card"><h1>Already decided</h1>${back}</div>`);
     await update(env, c.id, { decision: to, decision_note: note || null, decided_at: nowIso() });
     await logEvent(env, key, to, note);
+    if (action === "changes") await startMarketingAgent(env, c, "Jeremy requested changes", note);
     await opsNote(env, c, action === "changes" ? "needs_you" : "fyi",
       action === "changes" ? `Changes requested: ${c.subject}` : `Email rejected: ${c.subject}`,
       action === "changes"
@@ -569,6 +610,7 @@ async function sendNow(env, c) {
   } catch (e) {
     await update(env, c.id, { status: "failed", error: e.message.slice(0, 1500) });
     await logEvent(env, c.campaign_key, "send_failed", e.message);
+    await startMarketingAgent(env, c, "approved send failed", e.message);
     await opsNote(env, c, "needs_you", `Approved email did not send: ${c.subject}`, `Reason: ${e.message}`);
     try {
       await sendMandrill(env, {
@@ -616,7 +658,19 @@ async function tick(env) {
     }
   }
 
-  // 4. Keep the audience/tag list fresh for the agent to read.
+  // 4. Safety net: a change request that hasn't been picked up gets the agent started again.
+  const { results: pending } = await env.DB.prepare(
+    "SELECT * FROM campaigns WHERE status = 'changes_requested' ORDER BY id LIMIT 5").all();
+  for (const c of pending) {
+    const last = await env.DB.prepare(
+      "SELECT at FROM campaign_events WHERE campaign_key = ? AND event IN ('agent_started','agent_start_failed','agent_not_configured') ORDER BY id DESC LIMIT 1"
+    ).bind(c.campaign_key).first();
+    if (!last || Date.now() - new Date(last.at).getTime() > 30 * 60e3) {
+      await startMarketingAgent(env, c, "change request still waiting (retry)", c.decision_note);
+    }
+  }
+
+  // 5. Keep the audience/tag list fresh for the agent to read.
   await refreshAudiences(env).catch((e) => logEvent(env, "-", "audience_refresh_failed", e.message));
 }
 
